@@ -1,7 +1,8 @@
 import pygame
 import random
 import sys
-from config import proximity_factor, initial_speed, speed_increment, block_size, wall_width_multiple
+from config import proximity_factor, initial_speed, speed_increment,\
+    block_size, wall_width_multiple,score_increase_by, regenfood_count_time,boost_speed_by, cooldown_for_seconds
 
 # Initialize Pygame
 pygame.init()
@@ -20,21 +21,27 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 GRAY = (100, 100, 100)
 
-
-
 clock = pygame.time.Clock()
+
+#boost time
+boost_for_seconds = 5
 
 # Fonts
 font = pygame.font.SysFont(None, 50)
 game_over_font = pygame.font.SysFont(None, 75)
 
-def generate_food(snake, level, wall_rects):
-    """Generate food at random position not occupied by snake or walls."""
-    max_offset = proximity_factor * block_size * level
+# Load background image
+background_image = pygame.image.load("grass.jpg")
+background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
 
+def generate_food(snake, level, wall_rects):
+    global regenfood_count
+    regenfood_count = 0
+    """Generate food at random position not occupied by snake or walls."""
+    wall_thickness = block_size * wall_width_multiple
     while True:
-        x = random.randrange(0, screen_width, block_size)
-        y = random.randrange(0, screen_height, block_size)
+        x = random.randrange(wall_thickness, screen_width - wall_thickness, block_size)
+        y = random.randrange(wall_thickness, screen_height - wall_thickness, block_size)
         
         # Ensure food does not overlap with snake or walls
         if [x, y] not in snake and not any(wall.collidepoint(x, y) for wall in wall_rects):
@@ -64,6 +71,11 @@ def main():
     score = 0
     current_speed = initial_speed
     game_active = True
+    global regenfood_count 
+    boost_active = False
+    cooldown_active = False
+    boost_start_time = 0
+
 
     # Initialize walls
     wall_rects = draw_walls()
@@ -89,6 +101,17 @@ def main():
                         dx, dy = 0, -block_size
                     elif event.key == pygame.K_DOWN and dy != -block_size:
                         dx, dy = 0, block_size
+                    elif event.key == pygame.K_b and not boost_active and not cooldown_active:
+                        boost_active = True
+                        cooldown_active = True
+                        boost_start_time = pygame.time.get_ticks()  
+                    
+                if boost_active and pygame.time.get_ticks() - boost_start_time > boost_for_seconds * 1000:
+                    boost_active = False
+                if cooldown_active and pygame.time.get_ticks() - boost_start_time > cooldown_for_seconds * 1000:
+                    cooldown_active = False
+                 
+                current_speed = initial_speed + boost_speed_by if boost_active else initial_speed
 
             # Move snake
             new_head = [snake[0][0] + dx, snake[0][1] + dy]
@@ -96,25 +119,35 @@ def main():
 
             # Check food collision
             if snake[0] == food:
-                score += 1
+                score += score_increase_by
                 if score % 2 == 0:
                     level += 1
                     current_speed += speed_increment
                 food = generate_food(snake, level, wall_rects)
             else:
                 snake.pop()
+            if(regenfood_count == regenfood_count_time):
+                food = generate_food(snake, level, wall_rects)
+            regenfood_count += 1
 
             # Check collisions with walls and boundaries
-            head_x, head_y = snake[0]
-            if any(wall.collidepoint(head_x, head_y) for wall in wall_rects):
+            wall_thickness = block_size * wall_width_multiple
+            head_rect = pygame.Rect(snake[0][0], snake[0][1], block_size, block_size)
+            if any(head_rect.colliderect(wall) for wall in wall_rects):
+                game_active = False
+
+            # Prevent snake from going partially into walls by adjusting boundaries
+            if snake[0][0] < wall_thickness or snake[0][1] < wall_thickness or \
+               snake[0][0] >= screen_width - wall_thickness or snake[0][1] >= screen_height - wall_thickness:
                 game_active = False
             
+            # Check collisions with itself
             for segment in snake[1:]:
                 if snake[0] == segment:
                     game_active = False
 
             # Draw elements
-            screen.fill(BLACK)
+            screen.blit(background_image, (0, 0))  # Draw the background
             wall_rects = draw_walls()  # Redraw walls every frame
             for segment in snake:
                 pygame.draw.rect(screen, GREEN, (segment[0], segment[1], block_size, block_size))
@@ -123,6 +156,14 @@ def main():
             # Display score
             score_text = font.render(f"Score: {score}  Level: {level}", True, WHITE)
             screen.blit(score_text, (10, 10))
+
+            if boost_active:
+                boost_text = "Active"
+            else:
+                boost_text = "Inactive"
+            boost_text = font.render(f"Boost: {boost_text} Cooldown: {cooldown_active}", True, WHITE)
+            screen.blit(boost_text, (10, 50))
+            
             
             pygame.display.update()
             clock.tick(current_speed)
