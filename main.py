@@ -1,8 +1,8 @@
 import pygame
 import random
 import sys
-from config import proximity_factor, initial_speed, speed_increment,\
-    block_size, wall_width_multiple,score_increase_by, regenfood_count_time,boost_speed_by, cooldown_for_seconds
+from config import proximity_factor, initial_speed, speed_increment, \
+    block_size, wall_width_multiple, score_increase_by, regenfood_count_time, boost_speed_by, cooldown_for_seconds
 
 # Initialize Pygame
 pygame.init()
@@ -20,19 +20,29 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 GRAY = (100, 100, 100)
+BLUE = (0, 0, 200)
+boost_color = RED
 
 clock = pygame.time.Clock()
 
-#boost time
+# boost time
 boost_for_seconds = 5
 
 # Fonts
 font = pygame.font.SysFont(None, 50)
-game_over_font = pygame.font.SysFont(None, 75)
+game_over_font = pygame.font.SysFont(None, 100)
+game_start_font = pygame.font.SysFont(None, 100)
+
 
 # Load background image
-background_image = pygame.image.load("grass.jpg")
+background_image = pygame.image.load("grass2.png")
 background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
+# Load apple image
+apple_image = pygame.image.load("APPLE_REAL-removebg-preview.png")
+apple_image = pygame.transform.scale(apple_image, (int(block_size * 2), int(block_size * 2)))
+background_OVERGAME = pygame.image.load("he he ha ha.jpg")
+background_OVERGAME = pygame.transform.scale(background_OVERGAME, (screen_width, screen_height))
+TITLE_LOGO = pygame.image.load("snake logo.png")
 
 def generate_food(snake, level, wall_rects):
     global regenfood_count
@@ -60,6 +70,15 @@ def draw_walls():
         pygame.draw.rect(screen, GRAY, wall)
     return walls
 
+def show_start_screen():
+    """Show the start screen with instructions."""
+    title_txt = game_start_font.render("SNAKE GAME",True, WHITE)
+    start_text = font.render("Press SPACE to Start", True, WHITE)
+    screen.blit(background_image, (0, 0))  # Draw background
+    screen.blit(start_text, (screen_width // 2 - start_text.get_width() // 2, screen_height // 2))
+    screen.blit(title_txt, (screen_width // 2 - title_txt.get_width() // 2, screen_height // 4))
+    pygame.display.update()
+
 def main():
     # Align initial position to grid
     start_x = (screen_width // 2) // block_size * block_size
@@ -70,16 +89,32 @@ def main():
     dx, dy = block_size, 0
     score = 0
     current_speed = initial_speed
-    game_active = True
+    game_active = False
     global regenfood_count 
     boost_active = False
     cooldown_active = False
-    boost_start_time = 0
-
+    boost_start_time = 0 
 
     # Initialize walls
     wall_rects = draw_walls()
     food = generate_food(snake, level, wall_rects)
+
+    # Show the start screen
+    show_start_screen()
+
+    # Wait for space bar to start the game
+    waiting_for_start = True
+    while game_active == False:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+                elif event.key == pygame.K_SPACE:
+                    game_active = True # Start the game when space is pressed
 
     while True:
         while game_active:
@@ -151,30 +186,33 @@ def main():
             wall_rects = draw_walls()  # Redraw walls every frame
             for segment in snake:
                 pygame.draw.rect(screen, GREEN, (segment[0], segment[1], block_size, block_size))
-            pygame.draw.rect(screen, RED, (food[0], food[1], block_size, block_size))
-            
+            screen.blit(apple_image, (food[0], food[1]))  # Draw apple as food
+
             # Display score
             score_text = font.render(f"Score: {score}  Level: {level}", True, WHITE)
             screen.blit(score_text, (10, 10))
 
             if boost_active:
                 boost_text = "Active"
+                boost_color = BLUE
             else:
                 boost_text = "Inactive"
-            boost_text = font.render(f"Boost: {boost_text} Cooldown: {cooldown_active}", True, WHITE)
+                boost_color = RED
+            boost_text = font.render(f"Boost: {boost_text}", True, boost_color)
+            cooldown_txt = font.render(f"Cooldown: {cooldown_active}", True, WHITE)
             screen.blit(boost_text, (10, 50))
-            
+            screen.blit(cooldown_txt, (400, 10))
             
             pygame.display.update()
             clock.tick(current_speed)
 
         # Game Over screen
-        screen.fill(BLACK)
-        game_over_text = game_over_font.render("Game Over!", True, RED)
-        restart_text = font.render("Press R to restart or Q to quit", True, WHITE)
+        screen.blit(background_OVERGAME, (0, 0)) 
+        game_over_text = game_over_font.render("YOU DIED HA! U R NOT PROFFESONAL!", True, RED)
+        restart_text = font.render("Press R to try again or Q to rage quit cuz u cant win :)", True, RED)
         
-        screen.blit(game_over_text, (screen_width//2 - game_over_text.get_width()//2, screen_height//2 - 50))
-        screen.blit(restart_text, (screen_width//2 - restart_text.get_width()//2, screen_height//2 + 50))
+        screen.blit(game_over_text, (screen_width // 2 - game_over_text.get_width() // 2, screen_height // 2 - 50))
+        screen.blit(restart_text, (screen_width // 2 - restart_text.get_width() // 2, screen_height // 2 + 50))
         pygame.display.update()
 
         # Handle game over input
